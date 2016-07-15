@@ -1,16 +1,17 @@
 // Please check the README.md for details on how to run this.
 
-// Register a new consumer here:
+// Register a new Meetup consumer here:
 // https://secure.meetup.com/meetup_api/oauth_consumers/create
-var CLIENT_ID = "<Meetup OAuth Consumer Key>"
-var CLIENT_SECRET = "<Meetup OAuth Consumer Secret>"
+//
+// Add the consumer's key and secret as a CLIENT_ID and CLIENT_SECRET in
+// "File > Project properties > Script properties".
 
 function debugProjectKey() {
   var projectKey = ScriptApp.getProjectKey();
   Logger.log("projectKey = %s", projectKey);
 }
 
-function debugResetAccessToken() {
+function resetAccessToken() {
   var service = getMeetupService();
   service.reset();
   Logger.log("Reset OAuth2 token for Meetup service.");
@@ -26,6 +27,7 @@ function onOpen(e) {
     .createAddonMenu()
     .addItem("Insert Upcoming Meetups", "insertUpcomingMeetups")
     .addItem("Configure Filters", "showSidebar")
+    .addItem("Reset User", "resetAccessToken")
     .addToUi();
 }
 
@@ -113,6 +115,13 @@ function getFormattedDateString(date) {
 }
 
 function insertUpcomingMeetups() {
+  var preferences = getPreferences();
+  Logger.log("preferences = %s", preferences);
+  if (preferences.groupIds == null || preferences.groupIds.length == 0) {
+    DocumentApp.getUi().alert("No groups selected! Please \"Configure Filters\".");
+    return;
+  }
+
   var service = getMeetupService();
   showAuthorizationSidebarIfNecessary(service);
   
@@ -220,9 +229,19 @@ function showSidebar() {
 
 function getPreferences() {
   var userProperties = PropertiesService.getUserProperties();
+  var groupIds = [];
+  if (!!userProperties.getProperty("groupIds")) {
+    groupIds = userProperties.getProperty("groupIds").split(',');
+  }
+
+  var timeRange = "-1d,1w";
+  if (!!userProperties.getProperty("timeRange")) {
+    timeRange = userProperties.getProperty("timeRange");
+  }
+
   return {
-    groupIds: userProperties.getProperty("groupIds").split(','),
-    timeRange: userProperties.getProperty("timeRange")
+    groupIds: groupIds,
+    timeRange: timeRange
   };
 }
 
@@ -244,8 +263,8 @@ function getMeetupService() {
   return OAuth2.createService("meetup")
     .setAuthorizationBaseUrl("https://secure.meetup.com/oauth2/authorize")
     .setTokenUrl("https://secure.meetup.com/oauth2/access")
-    .setClientId(CLIENT_ID)
-    .setClientSecret(CLIENT_SECRET)
+    .setClientId(PropertiesService.getScriptProperties().getProperty("CLIENT_ID"))
+    .setClientSecret(PropertiesService.getScriptProperties().getProperty("CLIENT_SECRET"))
     .setCallbackFunction("authCallback")
     .setPropertyStore(PropertiesService.getUserProperties())
 }

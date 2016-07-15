@@ -16,8 +16,8 @@ Google Apps Scripts for use with Google Docs.
 * Associate the project with a Meetup OAuth Consumer. You can add a new new OAuth Consumer [here](https://secure.meetup.com/meetup_api/oauth_consumers/create).
   * Consumer name: `(whatever you wish)`
   * Application website: `(whatever you wish)`
-  * Redirect URI: `https://script.google.com/macros/d/(PROJECT KEY)/usercallback`
-    * The `(PROJECT KEY)` can be obtained in two ways:
+  * Redirect URI: `https://script.google.com/macros/d/PROJECT_KEY/usercallback`
+    * The `PROJECT_KEY` can be obtained in two ways:
       * "File > Project properties > Info > Project key" 
         * ***NOTE: This is incorrect because of [an Apps Script issue](https://code.google.com/p/google-apps-script-issues/issues/detail?id=6098)!***
       * "Run > debugProjectKey" then "View > Logs"

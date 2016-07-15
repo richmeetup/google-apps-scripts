@@ -28,9 +28,10 @@
       <input type="submit" value="Update" onclick="processSubmit();" /><br />
       <br />
 
-      Time range (ie. 0,1w):<br />
+      Time range (ie. "-1d,1w"):<br />
       <input type="text" name="timeRange" id="timeRange"
         value="<?= timeRange ?>" /><br />
+      "d" (day), "w" (week) &amp; "m" (month) are valid, 0 is unbound<br />
 
       <br />
       <? for (var i = 0; i < memberGroups.length; i++) { ?>
