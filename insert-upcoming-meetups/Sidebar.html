@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script>
+      function processSubmit() {
+        this.disabled = true;
+        this.value = "Processing...";
+        
+        var checkboxes = document.getElementsByName("groupId");
+        var groupIds = [];
+        for (var i = 0; i < checkboxes.length; i++) {
+          if (checkboxes[i].checked) {
+            groupIds.push(checkboxes[i].value);
+          }
+        }
+        
+        var timeRange = document.getElementById("timeRange").value;
+
+        google.script.run.savePreferences(groupIds, timeRange);
+        
+        google.script.host.close();
+      }
+    </script>
+  </head>
+  <body>
+    <form id="form">
+      <input type="submit" value="Update" onclick="processSubmit();" /><br />
+      <br />
+
+      Time range (ie. 0,1w):<br />
+      <input type="text" name="timeRange" id="timeRange"
+        value="<?= timeRange ?>" /><br />
+
+      <br />
+      <? for (var i = 0; i < memberGroups.length; i++) { ?>
+      <input type="checkbox" name="groupId"
+        value="<?= memberGroups[i].id ?>"
+        <? if (memberGroups[i].id in groupIds) { ?>
+          checked
+        <? } ?> />
+      <?= memberGroups[i].name ?><br />
+      <? } ?>
+    </form>
+  </body>
+</html>
