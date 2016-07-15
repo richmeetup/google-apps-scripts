@@ -3,6 +3,16 @@
   <head>
     <base target="_top">
     <script>
+      function onSuccess(data, element) {
+        google.script.host.close();
+      }
+
+      function onFailure(data, element) {
+        google.script.run.showError("Unable to save preferences.");
+        element.disabled = false;
+        element.value = "Update";
+      }
+
       function processSubmit() {
         this.disabled = true;
         this.value = "Processing...";
@@ -17,15 +27,17 @@
         
         var timeRange = document.getElementById("timeRange").value;
 
-        google.script.run.savePreferences(groupIds, timeRange);
-        
-        google.script.host.close();
+        google.script.run
+          .withSuccessHandler(onSuccess)
+          .withFailureHandler(onFailure)
+          .withUserObject(this)
+          .savePreferences(groupIds, timeRange);
       }
     </script>
   </head>
   <body>
     <form id="form">
-      <input type="submit" value="Update" onclick="processSubmit();" /><br />
+      <input type="button" value="Update" onclick="processSubmit();" /><br />
       <br />
 
       Time range (ie. "-1d,1w"):<br />

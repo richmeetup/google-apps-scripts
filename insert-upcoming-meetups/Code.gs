@@ -17,6 +17,10 @@ function resetAccessToken() {
   Logger.log("Reset OAuth2 token for Meetup service.");
 }
 
+function showError(errorMessage) {
+  DocumentApp.getUi().alert(errorMessage);
+}
+
 function onInstall(e) {
   onOpen(e);
 }
@@ -118,7 +122,7 @@ function insertUpcomingMeetups() {
   var preferences = getPreferences();
   Logger.log("preferences = %s", preferences);
   if (preferences.groupIds == null || preferences.groupIds.length == 0) {
-    DocumentApp.getUi().alert("No groups selected! Please \"Configure Filters\".");
+    showError("No groups selected! Please \"Configure Filters\".");
     return;
   }
 
@@ -222,7 +226,7 @@ function showSidebar() {
     Logger.log("preferences = %s", preferences);
     
     var html = template.evaluate()
-      .setTitle("Configure Meetups this Week");
+      .setTitle("Configure Filters");
     DocumentApp.getUi().showSidebar(html);
   }
 }
