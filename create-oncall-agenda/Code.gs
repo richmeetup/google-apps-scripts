@@ -1,4 +1,4 @@
-// WIP: Create the on-call agenda by pulling incidents of the last week from PagerDuty and reference them 
+// WIP: Create the on-call agenda by pulling incidents of the last week from PagerDuty and reference them
 // with Slack discussion in #production-status. Agenda is outputted in Confluence Wiki Markup format.
 
 // TODO:
@@ -26,7 +26,7 @@ function onOpen(e) {
     .addToUi();
 }
 
-var Incident = function(incident_num, created_at, responder, status, description, html_url, body) {
+var Incident = function(incident_num, created_at, responder, status, description, html_url, body, customDetails) {
   this.incident_num = incident_num;
   this.created_at = created_at;
   this.responder = responder;
@@ -34,6 +34,7 @@ var Incident = function(incident_num, created_at, responder, status, description
   this.description = description;
   this.html_url = html_url;
   this.body = body;
+  this.customDetails = customDetails;
 }
 
 var SlackMessage = function(incident_num, permalink) {
@@ -249,7 +250,11 @@ function insertIncidentsFromLastWeekAsConfluenceWiki() {
   
   document.setCursor(document.newPosition(body, 0));
   
-  body.editAsText().appendText("h1. Discussion\n\n");
+  body.editAsText().appendText("h1. Discussion\n");
+  body.editAsText().appendText("* Announcements\n");
+  body.editAsText().appendText("* Last week's agenda tasks\n");
+  body.editAsText().appendText("* Upcoming production changes\n");
+  body.editAsText().appendText("* Non-paging events\n\n");
 
   body.editAsText().appendText("h1. Issues from Last Week\n" +
                                "If any issues have recurred, can we assign someone to look into this issue? " +
@@ -361,6 +366,12 @@ function insertIncidentsFromLastWeekAsConfluenceWiki() {
         .trim();
       incidentDetails = "{code}" + incidentDetails + "{code}";
     }
+    else if (incident.customDetails) {
+      incidentDetails = incident.customDetails
+        .replace(/\n[\n]+/g, "\n\n")
+        .trim();
+      incidentDetails = "{code}" + incidentDetails + "{code}";
+    }
 
     body.editAsText().appendText("|" + timeString + 
                                  "|" + pagerDutyString + 
@@ -399,31 +410,42 @@ function getSlackMessagesByIncidentNumberFromLastWeek() {
 function getIncidentsFromLastWeek() {
   var sinceDate = new Date(new Date().getTime() - 7 * (24 * 3600 * 1000));
   
-  var jsonResponse = pagerDutyApiCall("incidents", {
-    "since": Utilities.formatDate(sinceDate, Session.getScriptTimeZone(), "YYYY-MM-dd"),
-    "timezone": "UTC",
-    "include[]": "first_trigger_log_entries",
-//    "include[]": "acknowledgers", // XXX - cannot for the life of me figure out how to get ack'rs to show up in the response
-    "limit": 100
-  });
 
   // XXX - pagination on "more" https://v2.developer.pagerduty.com/docs/pagination
   
   var incidentsFromLastWeek = []
-  for (var i = 0; i < jsonResponse.incidents.length; i++) {
-    var incidentJson = jsonResponse.incidents[i];
+  var more = true
+  var limit = 100
+  
+  for (var offset = 0; more; offset = offset + 100) {
+
+    var jsonResponse = pagerDutyApiCall("incidents", {
+      "since": Utilities.formatDate(sinceDate, Session.getScriptTimeZone(), "YYYY-MM-dd"),
+      "timezone": "UTC",
+      "include[]": "first_trigger_log_entries",
+//    "include[]": "acknowledgers", // XXX - cannot for the life of me figure out how to get ack'rs to show up in the response
+      "limit": limit,
+      "offset": offset
+    });
+
+    for (var i = 0; i < jsonResponse.incidents.length; i++) {
+      var incidentJson = jsonResponse.incidents[i];
     
-    var incident = new Incident(
-      incidentJson.incident_number,
-      parseUTCDate(incidentJson.created_at), // "2016-09-01T10:12:25Z"
-      incidentJson.last_status_change_by.summary, // "Brandon Price"
-      incidentJson.status, // "resolved", "acknowledged"
-      incidentJson.first_trigger_log_entry.event_details.description, // "!BB: 2295010 red! -- deploy1.meetup.com.graphite"
-      incidentJson.html_url, // "https://meetup.pagerduty.com/services/P8LP147"
-      incidentJson.first_trigger_log_entry.channel.body
-    );
+      var incident = new Incident(
+        incidentJson.incident_number,
+        parseUTCDate(incidentJson.created_at), // "2016-09-01T10:12:25Z"
+        incidentJson.last_status_change_by.summary, // "Brandon Price"
+        incidentJson.status, // "resolved", "acknowledged"
+        incidentJson.first_trigger_log_entry.event_details.description, // "!BB: 2295010 red! -- deploy1.meetup.com.graphite"
+        incidentJson.html_url, // "https://meetup.pagerduty.com/services/P8LP147"
+        incidentJson.first_trigger_log_entry.channel.body,
+        (incidentJson.first_trigger_log_entry.channel.details) ? incidentJson.first_trigger_log_entry.channel.details.description : null
+      );
     
-    incidentsFromLastWeek.push(incident);
+      incidentsFromLastWeek.push(incident);
+    }
+    
+    more = jsonResponse.more
   }
   
   //Logger.log("incidentsFromLastWeek = %s", incidentsFromLastWeek);
@@ -436,7 +458,7 @@ function pagerDutyApiCall(path, queryStringParams) {
     queryStringArray.push(encodeURIComponent(key) + "=" + encodeURIComponent(queryStringParams[key]));
   }
   
-  var authToken = PropertiesService.getUserProperties().getProperty("pagerdutyAuthToken");
+  var authToken = PropertiesService.getScriptProperties().getProperty("pagerdutyAuthToken");
     
   var params = {
     headers: {
