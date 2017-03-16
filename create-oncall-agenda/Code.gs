@@ -26,7 +26,7 @@ function onOpen(e) {
     .addToUi();
 }
 
-var Incident = function(incident_num, created_at, responder, status, description, html_url, body, customDetails) {
+var Incident = function(incident_num, created_at, responder, status, description, html_url, body, customDetails, incidentKey) {
   this.incident_num = incident_num;
   this.created_at = created_at;
   this.responder = responder;
@@ -35,6 +35,7 @@ var Incident = function(incident_num, created_at, responder, status, description
   this.html_url = html_url;
   this.body = body;
   this.customDetails = customDetails;
+  this.incidentKey = incidentKey;
 }
 
 var SlackMessage = function(incident_num, permalink) {
@@ -280,8 +281,16 @@ function insertIncidentsFromLastWeekAsConfluenceWiki() {
   var incidentsByType = {};
   for (var i = 0; i < incidentsThisWeek.length; i++) {
     var incident = incidentsThisWeek[i];
+
+    var incidentKey = "";
+    // if there are no spaces or dashes, then incidentKey is probably illegible
+    if (incident.incidentKey && incident.incidentKey.replace(/[ -]/g, "") !== incident.incidentKey) {
+      incidentKey = incident.incidentKey.replace(/\d+/g, "*");
+    }
+    else if (incident.description) {
+      incidentKey = incident.description.replace(/\d+/g, "*");
+    }
     
-    var incidentKey = incident.description.replace(/\d+/g, "*");
     if (incidentKey in incidentsByType) {
       incidentsByType[incidentKey].push(incident);
     }
@@ -347,32 +356,39 @@ function insertIncidentsFromLastWeekAsConfluenceWiki() {
 
     // pagerduty incident
     var pagerDutyString = "[#" + incident.incident_num + "|" + incident.html_url + "]";
+
+    // details
+    var incidentDetails = " ";
     
     // description
-    var description = incident.description;
+    var description = "";
+    if (incident.incidentKey && incident.incidentKey.replace(/[ -]/g, "") !== incident.incidentKey) {
+      description = incident.incidentKey;
+      incidentDetails = "{code}" + incident.description + "{code}";
+    }
+    else if (incident.description) {
+      description = incident.description;
 
+      if (incident.body) {
+        incidentDetails = incident.body
+          .replace(/Please see\:.*[.\r\n]*.*minutes without page/m, "")
+          .replace(/\n[\n]+/g, "\n\n")
+          .trim();
+        incidentDetails = "{code}" + incidentDetails + "{code}";
+      }
+      else if (incident.customDetails) {
+        incidentDetails = incident.customDetails
+          .replace(/\n[\n]+/g, "\n\n")
+          .trim();
+        incidentDetails = "{code}" + incidentDetails + "{code}";
+      }
+    }
     
     // XXX - status
     
     // responder
     var responder = incident.responder;
     
-    // details
-    var incidentDetails = " ";
-    if (incident.body) {
-      incidentDetails = incident.body
-        .replace(/Please see\:.*[.\r\n]*.*minutes without page/m, "")
-        .replace(/\n[\n]+/g, "\n\n")
-        .trim();
-      incidentDetails = "{code}" + incidentDetails + "{code}";
-    }
-    else if (incident.customDetails) {
-      incidentDetails = incident.customDetails
-        .replace(/\n[\n]+/g, "\n\n")
-        .trim();
-      incidentDetails = "{code}" + incidentDetails + "{code}";
-    }
-
     body.editAsText().appendText("|" + timeString + 
                                  "|" + pagerDutyString + 
                                  "|" + description + 
@@ -439,7 +455,8 @@ function getIncidentsFromLastWeek() {
         incidentJson.first_trigger_log_entry.event_details.description, // "!BB: 2295010 red! -- deploy1.meetup.com.graphite"
         incidentJson.html_url, // "https://meetup.pagerduty.com/services/P8LP147"
         incidentJson.first_trigger_log_entry.channel.body,
-        (incidentJson.first_trigger_log_entry.channel.details) ? incidentJson.first_trigger_log_entry.channel.details.description : null
+        (incidentJson.first_trigger_log_entry.channel.details) ? incidentJson.first_trigger_log_entry.channel.details.description : null,
+        (incidentJson.first_trigger_log_entry.channel.incident_key) ? incidentJson.first_trigger_log_entry.channel.incident_key : null
       );
     
       incidentsFromLastWeek.push(incident);
